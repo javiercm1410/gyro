@@ -76,3 +76,8 @@ ROtate Access KEY
 Rotate PAssowrd
 Password manager as provider
 Use config file
+
+
+Multiple Output types
+Check Flags
+Check write to file
