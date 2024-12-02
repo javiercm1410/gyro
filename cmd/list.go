@@ -5,15 +5,19 @@ import (
 
 	"github.com/charmbracelet/log"
 	iam "github.com/javiercm1410/rotator/pkg/providers/aws"
+	"github.com/javiercm1410/rotator/pkg/utils"
 	"github.com/spf13/cobra"
 )
 
 type ListCommandOptions struct {
 	LastLogin int
 	Quantity  int32
+	Path      string
 	User      string
 	TimeZone  string
 	Output    string
+	Stale     int
+	Expired   bool
 }
 
 var listCmd = &cobra.Command{
@@ -27,26 +31,33 @@ var listCmd = &cobra.Command{
 		wrapper.IamClient = iam.DeclareConfig()
 
 		inputs := iam.GetUserAccessKeyInputs{
-			MaxUsers:   options.Quantity,
-			TimeZone:   options.TimeZone,
-			OutputType: options.Output,
-			Client:     wrapper,
+			MaxUsers: options.Quantity,
+			TimeZone: options.TimeZone,
+			Stale:    options.Stale,
+			Expired:  options.Expired,
+			UserName: options.User,
+			Client:   wrapper,
 		}
 
-		err := iam.GetUserAccessKey(inputs)
+		userKeyData, err := iam.GetUserAccessKey(inputs)
 		if err != nil {
 			log.Errorf("Failed to get users. Here's why: %v\n", err)
 			os.Exit(1)
 		}
+
+		utils.DisplayData(options.Output, options.Path, options.Stale, userKeyData)
 	},
 }
 
 func configureListFlags(cmd *cobra.Command) ListCommandOptions {
 	lastLogin, _ := cmd.Flags().GetInt("last-login")
 	quantity, _ := cmd.Flags().GetInt32("quantity")
-	userName, _ := cmd.Flags().GetString("user")
 	timeZone, _ := cmd.Flags().GetString("timezone")
 	output, _ := cmd.Flags().GetString("output")
+	userName, _ := cmd.Flags().GetString("user")
+	path, _ := cmd.Flags().GetString("path")
+	stale, _ := cmd.Flags().GetInt("stale")
+	expired, _ := cmd.Flags().GetBool("expired")
 
 	return ListCommandOptions{
 		LastLogin: lastLogin,
@@ -54,16 +65,22 @@ func configureListFlags(cmd *cobra.Command) ListCommandOptions {
 		User:      userName,
 		TimeZone:  timeZone,
 		Output:    output,
+		Path:      path,
+		Stale:     stale,
+		Expired:   expired,
 	}
 }
 
 func init() {
 	RootCmd.AddCommand(listCmd)
 
-	listCmd.PersistentFlags().BoolP("access-key", "k", false, "Vault ID")
-	listCmd.PersistentFlags().BoolP("passwords", "w", false, "Vault ID")
-	listCmd.PersistentFlags().BoolP("all", "a", false, "get both access-key and password")
-	listCmd.PersistentFlags().StringP("timezone", "t", "America/Santo_Domingo", "get both access-key and password")
-	listCmd.PersistentFlags().StringP("output", "o", "json", "json, table, text, default table")
-	listCmd.PersistentFlags().StringP("path", "p", "json", "Json, table, text, default table")
+	listCmd.PersistentFlags().StringP("timezone", "t", "America/Santo_Domingo", "Select the timezone to display the dates")
+	listCmd.PersistentFlags().StringP("output", "o", "json", "Select the output format (json, table, text)")
+	listCmd.PersistentFlags().StringP("path", "p", "./output.json", "Path to save the output file")
+	listCmd.PersistentFlags().StringP("user", "u", "", "Select the user to get the access keys")
+	listCmd.PersistentFlags().IntP("stale", "s", 90, "Select the stale days to get the expired access keys")
+	listCmd.PersistentFlags().BoolP("expired", "x", false, "Only get the expired access keys")
 }
+
+// Check status
+// Work on list users command

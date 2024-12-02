@@ -81,3 +81,18 @@ Use config file
 Multiple Output types
 Check Flags
 Check write to file
+
+
+they should be two command one for key
+the other for pass
+
+key command
+user command
+
+rotate will have flags
+
+
+Old in red, close to old in yellow
+
+
+Exit on failure

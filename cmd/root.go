@@ -26,7 +26,7 @@ func init() {
 		"n",
 		50,
 		"Test flag to pass value",
-	)
+	) // check this flag
 
 	RootCmd.PersistentFlags().StringP(
 		"user",
