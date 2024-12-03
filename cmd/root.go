@@ -9,30 +9,16 @@ import (
 
 var RootCmd = &cobra.Command{
 	Use:     "rotate-me",
-	Short:   "A CLI tool designed to rotate AWS Access Key",
+	Short:   "A CLI tool designed to rotate AWS Access Key and users credentials",
 	Version: "1.0.0", // TODO: Import version from package.json
 }
 
 func init() {
-	RootCmd.PersistentFlags().IntP(
-		"last-login",
-		"l",
-		0,
-		"Search users that haven't logged since N days",
-	)
-
 	RootCmd.PersistentFlags().Int32P(
 		"quantity",
 		"n",
 		50,
-		"Test flag to pass value",
-	) // check this flag
-
-	RootCmd.PersistentFlags().StringP(
-		"user",
-		"u",
-		"fulano",
-		"Test flag to pass value",
+		"User number to be listed`",
 	)
 }
 

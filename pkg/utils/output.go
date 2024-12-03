@@ -14,8 +14,8 @@ import (
 	"github.com/charmbracelet/log"
 )
 
-func DisplayData(outputType, path string, stale int, value []iam.UserData) {
-	switch outputType {
+func DisplayData(outputFormat, path string, stale int, value []iam.UserData) {
+	switch outputFormat {
 	case "json":
 		jsonOutput(value)
 	case "file":

@@ -14,7 +14,7 @@ type GetUserAccessKeyInputs struct {
 	TimeZone string
 	UserName string
 	Client   UserWrapper
-	Stale    int
+	Age      int
 	Expired  bool
 }
 
@@ -39,7 +39,7 @@ func GetUserAccessKey(input GetUserAccessKeyInputs) ([]UserData, error) {
 	for _, user := range usersData {
 		go func() {
 			defer wg.Done()
-			keyData, err := input.Client.ListAccessKeys(*user.UserName, input.TimeZone, input.Expired, input.Stale)
+			keyData, err := input.Client.ListAccessKeys(*user.UserName, input.TimeZone, input.Expired, input.Age)
 			if err != nil {
 				log.Errorf("Couldn't list users. Here's why: %v\n", err)
 				return
