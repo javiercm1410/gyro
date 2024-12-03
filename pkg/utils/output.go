@@ -67,54 +67,22 @@ func fileOutput(value any, path string) error {
 	return nil
 }
 
-// func processTableData(value []iam.UserData) ([]string, [][]string, error) {
-// 	if reflect.TypeOf(value) != reflect.TypeOf([]iam.UserData{}) {
-// 		return nil, nil, errors.New("unexpected data type for table processing")
-// 	}
-
-// 	headers := []string{"UserName", "KeyId", "CreateDate", "KeyStatus", "LastUsedTime", "LastUsedService"}
-// 	data := make([][]string, 0, len(value))
-
-// 	for _, user := range value {
-// 		for _, key := range user.Keys {
-// 			createDate := key.CreateDate.Format(dateFormat)
-// 			lastUsedTime := "n/a"
-// 			if !key.LastUsedTime.IsZero() {
-// 				lastUsedTime = key.LastUsedTime.Format(dateFormat)
-// 			}
-
-// 			row := []string{
-// 				user.UserName,
-// 				*key.Id,
-// 				createDate,
-// 				string(key.KeyStatus),
-// 				lastUsedTime,
-// 				key.LastUsedService,
-// 			}
-// 			data = append(data, row)
-// 		}
-// 	}
-// 	return headers, data, nil
-// }
-
 func processTableData(value []iam.UserData) ([]string, [][]string, error) {
 	var headers []string
 	if reflect.TypeOf(value) == reflect.TypeOf([]iam.UserData{}) {
 		headers = append(headers, []string{"UserName", "KeyId", "CreateDate", "KeyStatus", "LastUsedTime", "LastUsedService"}...)
 	}
+	data := make([][]string, 0, len(value))
 
-	var data [][]string
 	for _, item := range value {
 		// Type assert each item to UserAccessKeyData
 		if user, ok := item.(iam.UserAccessKeyData); ok {
 			for _, key := range user.Keys {
-				var lastUsedTime string
-				createDate := key.CreateDate.Format("2006-01-02 15:04:05")
-				if key.LastUsedTime.IsZero() {
-					lastUsedTime = "n/a"
-				} else {
-					lastUsedTime = key.LastUsedTime.Format("2006-01-02 15:04:05")
+				createDate := key.CreateDate.Format(dateFormat)
+				lastUsedTime := "n/a"
 
+				if !key.LastUsedTime.IsZero() {
+					lastUsedTime = key.LastUsedTime.Format(dateFormat)
 				}
 
 				row := []string{
