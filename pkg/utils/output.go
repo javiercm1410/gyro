@@ -112,32 +112,45 @@ func tableOutput(headers []string, data [][]string, age int) {
 		Headers(headers...).
 		Width(130).
 		Rows(data...).
-		StyleFunc(func(row, col int) lipgloss.Style {
-			if row == table.HeaderRow {
-				return headerStyle
-			}
+		StyleFunc(generateTableStyleFunc(data, baseStyle, headerStyle, age))
 
-			even := row%2 == 0
+	fmt.Println(t)
+}
 
+func generateTableStyleFunc(data [][]string, baseStyle, headerStyle lipgloss.Style, age int) func(row, col int) lipgloss.Style {
+	return func(row, col int) lipgloss.Style {
+		if row == table.HeaderRow {
+			return headerStyle
+		}
+
+		even := row%2 == 0
+		if row < len(data) && col < len(data[row]) { // Ensure bounds: investigate
 			if col == 2 { // CreateDate column
 				dateStr := data[row][col]
 				parsedDate, err := time.Parse(dateFormat, dateStr)
-				if err == nil { // If the date parsing is successful
-					ageHours := float64(age) * 24
-					switch {
-					case time.Since(parsedDate).Hours() > ageHours:
-						return baseStyle.Foreground(lipgloss.Color("#BA5F75")) // Red
-					case time.Since(parsedDate).Hours() > ageHours-10*24:
-						return baseStyle.Foreground(lipgloss.Color("#FCFF5F")) // Yellow
-					}
+				if err == nil {
+					return styleByAge(parsedDate, age, even, baseStyle)
 				}
 			}
+		}
 
-			if even {
-				return baseStyle.Foreground(lipgloss.Color("245"))
-			}
-			return baseStyle.Foreground(lipgloss.Color("252"))
-		})
+		if even {
+			return baseStyle.Foreground(lipgloss.Color("245"))
+		}
+		return baseStyle.Foreground(lipgloss.Color("252"))
+	}
+}
 
-	fmt.Println(t)
+func styleByAge(date time.Time, age int, even bool, baseStyle lipgloss.Style) lipgloss.Style {
+	ageHours := float64(age) * 24
+	switch {
+	case time.Since(date).Hours() > ageHours:
+		return baseStyle.Foreground(lipgloss.Color("#BA5F75")) // Red
+	case time.Since(date).Hours() > ageHours-10*24:
+		return baseStyle.Foreground(lipgloss.Color("#FCFF5F")) // Yellow
+	case even:
+		return baseStyle.Foreground(lipgloss.Color("245")) // Even row
+	default:
+		return baseStyle.Foreground(lipgloss.Color("252")) // Default
+	}
 }

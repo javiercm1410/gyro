@@ -47,7 +47,6 @@ func GetUserAccessKey(input GetUserAccessKeyInputs) ([]UserData, error) {
 			if input.Expired {
 				if keyData.Keys != nil {
 					userKeyData = append(userKeyData, keyData)
-
 				}
 			} else {
 				userKeyData = append(userKeyData, keyData)
