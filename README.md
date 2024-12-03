@@ -1,5 +1,5 @@
 <!-- omit in toc -->
-# Envi CLI
+# Gyro CLI
 
 <!-- omit in toc -->
 ## Contents
@@ -15,26 +15,26 @@
 
 ## 📘 Description
 
-Envi CLI is a command-line tool designed to generate .env files using various providers, including Werf and 1Password.
+Gyro CLI is a command-line tool designed to generate .env files using various providers, including Werf and 1Password.
 
 ### Features
 
-- **Create .env with Werf:** Generate environment files based on configurations managed by Werf.
-- **Create .env with 1Password:** Securely generate environment files using secrets stored in 1Password.
+- **Create .env with Werf:** Generate gyroronment files based on configurations managed by Werf.
+- **Create .env with 1Password:** Securely generate gyroronment files using secrets stored in 1Password.
 
 ## 🚢 Installation
 
-To install Envi CLI from the source, follow these steps:
+To install gyro CLI from the source, follow these steps:
 
 ```bash
-curl -s -L https://github.com/gbh-tech/envi/releases/download/v0.3.0/envi-darwin-x64.tar.gz | tar xz
-chmod +x envi
-sudo mv envi /usr/local/bin
+curl -s -L https://github.com/javiercm1410/gyro/releases/download/v0.3.0/gyro-darwin-x64.tar.gz | tar xz
+chmod +x gyro
+sudo mv gyro /usr/local/bin
 ```
 
 ## 🔧 Usage
 
-Once installed, you can use the envi command to generate .env files based on Werf or 1Password.
+Once installed, you can use the gyro command to generate .env files based on Werf or 1Password.
 
 ### Commands
 
@@ -44,16 +44,10 @@ help: Display help information about any command.
 
 ### Examples
 
-To generate a .env file using Werf:
+To list AWS access keys
 
 ```bash
-./envi werf -e stage -o .env
-```
-
-To generate a .env file using 1Password:
-
-```bash
-./envi op -v vault-id -i item-id -o .env
+./gyro keys
 ```
 
 ## 🤝 Contributing
