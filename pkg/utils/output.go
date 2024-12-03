@@ -14,31 +14,40 @@ import (
 	"github.com/charmbracelet/log"
 )
 
+const dateFormat = "2006-01-02 15:04:05"
+
+// DisplayData processes and displays data in the specified format.
 func DisplayData(outputFormat, path string, stale int, value []iam.UserData) {
+	if len(value) == 0 {
+		log.Warn("No data available to display")
+		return
+	}
+
 	switch outputFormat {
 	case "json":
-		jsonOutput(value)
+		if err := jsonOutput(value); err != nil {
+			log.Error("Failed to generate JSON output", "error", err)
+		}
 	case "file":
-		fileOutput(value, path)
+		if err := fileOutput(value, path); err != nil {
+			log.Error("Failed to write data to file", "error", err)
+		}
 	case "table":
 		headers, data, err := processTableData(value)
 		if err != nil {
-			log.Error("Could not process table data")
+			log.Error("Failed to process table data", "error", err)
+			return
 		}
-		// fmt.Println("%v", len(data))
 		tableOutput(headers, data, stale)
-		// tableOutput(headers, data[:4])
 	default:
-		log.Error("Invalid output type")
+		log.Error("Generate output error", "Error", outputFormat)
 	}
-
 }
 
 func jsonOutput(value any) error {
 	marshaled, err := json.MarshalIndent(value, "", "   ")
 	if err != nil {
-		log.Fatalf("marshaling error: %s", err)
-		return err
+		return fmt.Errorf("error marshaling JSON: %w", err)
 	}
 	fmt.Println(string(marshaled))
 	return nil
@@ -47,19 +56,46 @@ func jsonOutput(value any) error {
 func fileOutput(value any, path string) error {
 	marshaled, err := json.MarshalIndent(value, "", "   ")
 	if err != nil {
-		log.Fatalf("marshaling error: %s", err)
-		return err
+		return fmt.Errorf("error marshaling JSON: %w", err)
 	}
 
-	err = os.WriteFile(path, marshaled, 0644)
-	if err != nil {
-		log.Fatalf("WriteFile error: %s", err)
-		return err
+	if err := os.WriteFile(path, marshaled, 0644); err != nil {
+		return fmt.Errorf("error writing to file %s: %w", path, err)
 	}
 
-	log.Infof("Output created on %s", path)
+	log.Infof("Output saved to %s", path)
 	return nil
 }
+
+// func processTableData(value []iam.UserData) ([]string, [][]string, error) {
+// 	if reflect.TypeOf(value) != reflect.TypeOf([]iam.UserData{}) {
+// 		return nil, nil, errors.New("unexpected data type for table processing")
+// 	}
+
+// 	headers := []string{"UserName", "KeyId", "CreateDate", "KeyStatus", "LastUsedTime", "LastUsedService"}
+// 	data := make([][]string, 0, len(value))
+
+// 	for _, user := range value {
+// 		for _, key := range user.Keys {
+// 			createDate := key.CreateDate.Format(dateFormat)
+// 			lastUsedTime := "n/a"
+// 			if !key.LastUsedTime.IsZero() {
+// 				lastUsedTime = key.LastUsedTime.Format(dateFormat)
+// 			}
+
+// 			row := []string{
+// 				user.UserName,
+// 				*key.Id,
+// 				createDate,
+// 				string(key.KeyStatus),
+// 				lastUsedTime,
+// 				key.LastUsedService,
+// 			}
+// 			data = append(data, row)
+// 		}
+// 	}
+// 	return headers, data, nil
+// }
 
 func processTableData(value []iam.UserData) ([]string, [][]string, error) {
 	var headers []string
@@ -97,7 +133,7 @@ func processTableData(value []iam.UserData) ([]string, [][]string, error) {
 	return headers, data, nil
 }
 
-func tableOutput(headers []string, data [][]string, stale int) {
+func tableOutput(headers []string, data [][]string, age int) {
 	re := lipgloss.NewRenderer(os.Stdout)
 	baseStyle := re.NewStyle().Padding(0, 1)
 	headerStyle := baseStyle.Foreground(lipgloss.Color("252")).Bold(true)
@@ -115,22 +151,18 @@ func tableOutput(headers []string, data [][]string, stale int) {
 
 			even := row%2 == 0
 
-			switch col {
-			case 2: // Date column
-				if row < len(data) && col < len(data[row]) { // Ensure bounds
-					dateStr := data[row][col]
-					parsedDate, err := time.Parse("2006-01-02 15:04:05", dateStr) // Match your date format
-					if err == nil {                                               // If the date parsing is successful
-						if time.Since(parsedDate).Hours() > float64(stale)*24 { // More than 90 days
-							return baseStyle.Foreground(lipgloss.Color("#BA5F75")) // Red
-						} else if time.Since(parsedDate).Hours() > float64(stale-10)*24 {
-							return baseStyle.Foreground(lipgloss.Color("#FCFF5F")) // Yellow
-						} else if even {
-							return baseStyle.Foreground(lipgloss.Color("245"))
-						}
+			if col == 2 { // CreateDate column
+				dateStr := data[row][col]
+				parsedDate, err := time.Parse(dateFormat, dateStr)
+				if err == nil { // If the date parsing is successful
+					ageHours := float64(age) * 24
+					switch {
+					case time.Since(parsedDate).Hours() > ageHours:
+						return baseStyle.Foreground(lipgloss.Color("#BA5F75")) // Red
+					case time.Since(parsedDate).Hours() > ageHours-10*24:
+						return baseStyle.Foreground(lipgloss.Color("#FCFF5F")) // Yellow
 					}
 				}
-				return baseStyle.Foreground(lipgloss.Color("252"))
 			}
 
 			if even {
@@ -138,7 +170,6 @@ func tableOutput(headers []string, data [][]string, stale int) {
 			}
 			return baseStyle.Foreground(lipgloss.Color("252"))
 		})
-	// fmt.Println("%v", len(data))
 
 	fmt.Println(t)
 }

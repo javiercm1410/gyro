@@ -16,7 +16,7 @@ before:
     - go generate ./...
 
 builds:
-  - binary: envi
+  - binary: gyro
     env:
       - CGO_ENABLED=0
     goos:
