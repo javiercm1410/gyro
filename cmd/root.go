@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/charmbracelet/log"
@@ -8,9 +9,9 @@ import (
 )
 
 var RootCmd = &cobra.Command{
-	Use:     "rotate-me",
-	Short:   "A CLI tool designed to rotate AWS Access Key and users credentials",
-	Version: "1.0.0", // TODO: Import version from package.json
+	Use:     "gyro",
+	Short:   "A CLI tool designed to rotate AWS Access Key and user credentials",
+	Version: getVersion(),
 }
 
 func init() {
@@ -18,13 +19,27 @@ func init() {
 		"quantity",
 		"n",
 		50,
-		"User number to be listed`",
+		"Number of users to be listed",
 	)
+
+	// Add validation example:
+	RootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+		quantity, _ := cmd.Flags().GetInt32("quantity")
+		if quantity < 1 {
+			return fmt.Errorf("quantity must be a positive number, got %d", quantity)
+		}
+		return nil
+	}
 }
 
 func Execute() {
 	if err := RootCmd.Execute(); err != nil {
-		log.Error(err)
+		log.Error("Command execution failed", "error", err)
 		os.Exit(1)
 	}
+}
+
+func getVersion() string {
+	// Placeholder for dynamic version retrieval logic
+	return "1.0.0"
 }

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/charmbracelet/log"
@@ -26,8 +27,10 @@ var listCmd = &cobra.Command{
 	Example: "rotate keys",
 	Run: func(cmd *cobra.Command, args []string) {
 		options := configureListFlags(cmd)
-		var wrapper iam.UserWrapper
-		wrapper.IamClient = iam.DeclareConfig()
+
+		wrapper := iam.UserWrapper{
+			IamClient: iam.DeclareConfig(),
+		}
 
 		inputs := iam.GetUserAccessKeyInputs{
 			MaxUsers: options.Quantity,
@@ -40,7 +43,7 @@ var listCmd = &cobra.Command{
 
 		userKeyData, err := iam.GetUserAccessKey(inputs)
 		if err != nil {
-			log.Errorf("Failed to get users. Here's why: %v\n", err)
+			log.Error("Failed to get users", "error", err)
 			os.Exit(1)
 		}
 
@@ -55,7 +58,7 @@ func configureListFlags(cmd *cobra.Command) ListCommandOptions {
 	userName, _ := cmd.Flags().GetString("username")
 	path, _ := cmd.Flags().GetString("output-file")
 	age, _ := cmd.Flags().GetInt("age")
-	expired, _ := cmd.Flags().GetBool("expired")
+	expired, _ := cmd.Flags().GetBool("expired-only")
 
 	return ListCommandOptions{
 		Quantity: quantity,
@@ -77,4 +80,24 @@ func init() {
 	listCmd.PersistentFlags().StringP("username", "u", "", "Filter by specific IAM username")
 	listCmd.PersistentFlags().IntP("age", "a", 90, "Consider keys stale after N days")
 	listCmd.PersistentFlags().BoolP("expired-only", "x", false, "Show only expired keys")
+
+	listCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+		age, _ := cmd.Flags().GetInt("age")
+		if age < 1 {
+			return fmt.Errorf("age must be greater than 0, got %d", age)
+		}
+
+		format, _ := cmd.Flags().GetString("format")
+		validFormats := map[string]bool{"json": true, "table": true, "text": true}
+		if !validFormats[format] {
+			return fmt.Errorf("invalid format '%s'. Valid options are: json, table, text", format)
+		}
+
+		timeZone, _ := cmd.Flags().GetString("timezone")
+		if timeZone == "" {
+			return fmt.Errorf("timezone cannot be empty")
+		}
+
+		return nil
+	}
 }
