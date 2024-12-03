@@ -1,4 +1,4 @@
-module github.com/javiercm1410/rotator
+module github.com/javiercm1410/gyro
 
 go 1.22.1
 

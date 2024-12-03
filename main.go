@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/javiercm1410/rotator/cmd"
+	"github.com/javiercm1410/gyro/cmd"
 )
 
 func main() {

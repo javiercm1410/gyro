@@ -5,8 +5,8 @@ import (
 	"os"
 
 	"github.com/charmbracelet/log"
-	iam "github.com/javiercm1410/rotator/pkg/providers/aws"
-	"github.com/javiercm1410/rotator/pkg/utils"
+	iam "github.com/javiercm1410/gyro/pkg/providers/aws"
+	"github.com/javiercm1410/gyro/pkg/utils"
 	"github.com/spf13/cobra"
 )
 

@@ -1,42 +1,11 @@
 {
-  "name": "envi",
+  "name": "gyro",
   "version": "1.1.0",
-  "description": "dot env file generator based on multiple providers",
+  "description": "CLI tool designed to rotate AWS Access Key and user credentials",
   "private": true,
-  "scripts": {
-    "prepare": "husky"
-  },
   "devDependencies": {
-    "@commitlint/config-conventional": "^19.2.2",
     "@release-it/conventional-changelog": "^8.0.1",
-    "commitlint": "^19.4.0",
     "release-it": "^17.6.0"
-  },
-  "commitlint": {
-    "extends": [
-      "@commitlint/config-conventional"
-    ],
-    "defaultIgnores": true,
-    "rules": {
-      "body-max-line-length": [
-        1,
-        "always"
-      ],
-      "header-max-length": [
-        2,
-        "always",
-        150
-      ],
-      "subject-case": [
-        2,
-        "always",
-        [
-          "sentence-case",
-          "start-case",
-          "sentence-case"
-        ]
-      ]
-    }
   },
   "release-it": {
     "github": {

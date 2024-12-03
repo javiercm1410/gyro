@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"time"
 
-	iam "github.com/javiercm1410/rotator/pkg/providers/aws"
+	iam "github.com/javiercm1410/gyro/pkg/providers/aws"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/lipgloss/table"

@@ -96,3 +96,8 @@ Old in red, close to old in yellow
 
 
 Exit on failure
+
+
+safe key on aws configure
+
+use config file
