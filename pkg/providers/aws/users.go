@@ -2,6 +2,7 @@ package iam
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -32,28 +33,21 @@ type UserAccessKeyData struct {
 	Keys     []AccessKeyData
 }
 
-// Create func to add to interface
-func (s UserAccessKeyData) isUserData() {}
+// Implement the interface
+func (u UserAccessKeyData) isUserData() {}
 
-// type UserData struct {
-// 	UserName             string
-// 	LastConsoleLoginDate string
-// 	Active               string
-// 	LastCredentialUsed   string
-// }
-
+// DeclareConfig initializes the IAM client using the default AWS configuration.
 func DeclareConfig() *iam.Client {
-	// var IamClient *iam.Client
 	sdkConfig, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
-		log.Warn("Couldn't load default configuration. Have you set up your AWS account?")
+		log.Warn("Couldn't load default configuration. Ensure AWS account setup.")
 		log.Error(err)
 		return nil
 	}
-	IamClient := iam.NewFromConfig(sdkConfig)
-	return IamClient
+	return iam.NewFromConfig(sdkConfig)
 }
 
+// ListUsers fetches a list of IAM users up to the specified maximum.
 func (wrapper UserWrapper) ListUsers(maxUsers int32) ([]types.User, error) {
 	var users []types.User
 
@@ -64,9 +58,8 @@ func (wrapper UserWrapper) ListUsers(maxUsers int32) ([]types.User, error) {
 	for {
 		result, err := wrapper.IamClient.ListUsers(context.TODO(), input)
 		if err != nil {
-			log.Errorf("Couldn't list users. Here's why: %v\n", err)
+			log.Errorf("Couldn't list users. Error: %v", err)
 			return nil, err
-			// os.Exit(1) here check how to return 1
 		}
 
 		users = append(users, result.Users...)
@@ -74,6 +67,7 @@ func (wrapper UserWrapper) ListUsers(maxUsers int32) ([]types.User, error) {
 		if result.Marker != nil {
 			input.Marker = result.Marker
 		}
+		// maxUsers != because 50 is the default value, so it should get all
 		if !result.IsTruncated || maxUsers != 50 {
 			break
 		}
@@ -82,8 +76,14 @@ func (wrapper UserWrapper) ListUsers(maxUsers int32) ([]types.User, error) {
 	return users, nil
 }
 
+// ListAccessKeys fetches access keys for a specific user.
 func (wrapper UserWrapper) ListAccessKeys(userName, timeZone string, expired bool, stale int) (UserAccessKeyData, error) {
 	var keys []AccessKeyData
+	loc, err := time.LoadLocation(timeZone)
+	if err != nil {
+		log.Errorf("Couldn't list Load Time Zone %s. Error: %v", timeZone, err)
+		return UserAccessKeyData{}, err
+	}
 
 	input := &iam.ListAccessKeysInput{
 		UserName: aws.String(userName),
@@ -91,41 +91,17 @@ func (wrapper UserWrapper) ListAccessKeys(userName, timeZone string, expired boo
 
 	result, err := wrapper.IamClient.ListAccessKeys(context.TODO(), input)
 	if err != nil {
-		log.Error("Couldn't list access keys for user %v. Here's why: %v\n", userName, err)
+		log.Errorf("Couldn't list access keys for user %s. Error: %v", userName, err)
+		return UserAccessKeyData{}, err
 	}
 
 	for _, key := range result.AccessKeyMetadata {
-		accessKeyInput := &iam.GetAccessKeyLastUsedInput{
-			AccessKeyId: aws.String(*key.AccessKeyId),
-		}
-
-		lastUsed, err := wrapper.IamClient.GetAccessKeyLastUsed(context.TODO(), accessKeyInput)
+		keyData, addToList, err := wrapper.getAccessKeyDetails(key, loc, expired, stale)
 		if err != nil {
-			log.Error("Couldn't get access keys last login for user %v. Here's why: %v\n", userName, err)
+			log.Errorf("Couldn't fetch access key details for user %s. Error: %v", userName, err)
+			continue
 		}
-
-		loc, _ := time.LoadLocation(timeZone)
-		var keyData AccessKeyData
-		if lastUsed.AccessKeyLastUsed.LastUsedDate == nil {
-			keyData = AccessKeyData{
-				Id:              key.AccessKeyId,
-				CreateDate:      key.CreateDate.In(loc),
-				KeyStatus:       key.Status,
-				LastUsedService: "n/a",
-			}
-		} else {
-			keyData = AccessKeyData{
-				Id:              key.AccessKeyId,
-				CreateDate:      key.CreateDate.In(loc),
-				KeyStatus:       key.Status,
-				LastUsedTime:    lastUsed.AccessKeyLastUsed.LastUsedDate.In(loc),
-				LastUsedService: *lastUsed.AccessKeyLastUsed.ServiceName,
-			}
-		}
-
-		if expired && time.Since(key.CreateDate.In(loc)).Hours() > float64(stale)*24 {
-			keys = append(keys, keyData)
-		} else {
+		if addToList {
 			keys = append(keys, keyData)
 		}
 	}
@@ -133,27 +109,41 @@ func (wrapper UserWrapper) ListAccessKeys(userName, timeZone string, expired boo
 	return UserAccessKeyData{
 		UserName: userName,
 		Keys:     keys,
-	}, err
+	}, nil
 }
 
-// func (wrapper UserWrapper) GetUser(userName string) (*types.User, error) {
-// 	var user *types.User
-// 	result, err := wrapper.IamClient.GetUser(context.TODO(), &iam.GetUserInput{
-// 		UserName: aws.String(userName),
-// 	})
-// 	if err != nil {
-// 		var apiError smithy.APIError
-// 		if errors.As(err, &apiError) {
-// 			switch apiError.(type) {
-// 			case *types.NoSuchEntityException:
-// 				log.Error("User %v does not exist.\n", userName)
-// 				err = nil
-// 			default:
-// 				log.Error("Couldn't get user %v. Here's why: %v\n", userName, err)
-// 			}
-// 		}
-// 	} else {
-// 		user = result.User
-// 	}
-// 	return user, err
-// }
+// getAccessKeyDetails fetches and processes details for a single access key.
+func (wrapper UserWrapper) getAccessKeyDetails(key types.AccessKeyMetadata, loc *time.Location, expired bool, stale int) (AccessKeyData, bool, error) {
+	accessKeyInput := &iam.GetAccessKeyLastUsedInput{
+		AccessKeyId: aws.String(*key.AccessKeyId),
+	}
+
+	lastUsed, err := wrapper.IamClient.GetAccessKeyLastUsed(context.TODO(), accessKeyInput)
+	if err != nil {
+		return AccessKeyData{}, false, errors.New("Couldn't get last used data for access key")
+	}
+
+	keyData := AccessKeyData{
+		Id:         key.AccessKeyId,
+		CreateDate: key.CreateDate.In(loc),
+		KeyStatus:  key.Status,
+	}
+
+	if lastUsed.AccessKeyLastUsed.LastUsedDate != nil {
+		keyData.LastUsedTime = lastUsed.AccessKeyLastUsed.LastUsedDate.In(loc)
+		keyData.LastUsedService = *lastUsed.AccessKeyLastUsed.ServiceName
+	} else {
+		keyData.LastUsedService = "n/a"
+	}
+
+	if expired {
+		if time.Since(keyData.CreateDate).Hours() > float64(stale*24) {
+			return keyData, true, nil
+		} else {
+			return keyData, false, nil
+
+		}
+	}
+
+	return keyData, true, nil
+}
