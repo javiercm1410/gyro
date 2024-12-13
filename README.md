@@ -95,3 +95,5 @@ Exit on failure
 safe key on aws configure
 
 use config file
+
+add notify feature

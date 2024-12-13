@@ -9,11 +9,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var keysCmd = &cobra.Command{
-	Use:     "get-keys",
-	Short:   "Get IAM Access Keys",
-	Aliases: []string{"keys", "k"},
-	Example: "gyro keys",
+var usersCmd = &cobra.Command{
+	Use:     "get-users",
+	Short:   "Get IAM users",
+	Aliases: []string{"users", "u"},
+	Example: "gyro users",
 	Run: func(cmd *cobra.Command, args []string) {
 		options := configureListFlags(cmd)
 
@@ -30,18 +30,18 @@ var keysCmd = &cobra.Command{
 			Client:   wrapper,
 		}
 
-		userKeyData, err := iam.GetUserAccessKey(inputs)
+		userPasswordData, err := wrapper.ListUsers(inputs.MaxUsers)
 		if err != nil {
 			log.Error("Failed to get users", "error", err)
 			os.Exit(1)
 		}
 
-		utils.DisplayData(options.Format, options.Path, options.Age, userKeyData)
+		utils.DisplayData(options.Format, options.Path, options.Age, []iam.UserData{userPasswordData})
 	},
 }
 
 func init() {
-	RootCmd.AddCommand(keysCmd)
+	RootCmd.AddCommand(usersCmd)
 
-	initializeListCommandFlags(keysCmd)
+	initializeListCommandFlags(usersCmd)
 }

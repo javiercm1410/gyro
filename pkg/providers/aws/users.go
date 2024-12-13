@@ -17,7 +17,6 @@ type UserWrapper struct {
 }
 
 type UserData interface {
-	isUserData()
 }
 
 type AccessKeyData struct {
@@ -32,9 +31,6 @@ type UserAccessKeyData struct {
 	UserName string
 	Keys     []AccessKeyData
 }
-
-// Implement the interface
-func (u UserAccessKeyData) isUserData() {}
 
 // DeclareConfig initializes the IAM client using the default AWS configuration.
 func DeclareConfig() *iam.Client {

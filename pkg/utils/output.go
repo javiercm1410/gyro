@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"reflect"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/service/iam/types"
 	iam "github.com/javiercm1410/gyro/pkg/providers/aws"
 
 	"github.com/charmbracelet/lipgloss"
@@ -69,33 +69,88 @@ func fileOutput(value any, path string) error {
 
 func processTableData(value []iam.UserData) ([]string, [][]string, error) {
 	var headers []string
-	if reflect.TypeOf(value) == reflect.TypeOf([]iam.UserData{}) {
-		headers = append(headers, []string{"UserName", "KeyId", "CreateDate", "KeyStatus", "LastUsedTime", "LastUsedService"}...)
-	}
 	data := make([][]string, 0, len(value))
 
-	for _, item := range value {
-		// Type assert each item to UserAccessKeyData
-		if user, ok := item.(iam.UserAccessKeyData); ok {
-			for _, key := range user.Keys {
-				createDate := key.CreateDate.Format(dateFormat)
-				lastUsedTime := "n/a"
+	if len(value) > 0 {
+		switch value[0].(type) {
+		case iam.UserAccessKeyData:
+			headers = []string{"UserName", "KeyId", "CreateDate", "KeyStatus", "LastUsedTime", "LastUsedService"}
+			for _, item := range value {
+				// Type assert each item to UserAccessKeyData
+				if user, ok := item.(iam.UserAccessKeyData); ok {
+					for _, key := range user.Keys {
+						createDate := key.CreateDate.Format(dateFormat)
+						lastUsedTime := "n/a"
 
-				if !key.LastUsedTime.IsZero() {
-					lastUsedTime = key.LastUsedTime.Format(dateFormat)
-				}
+						if !key.LastUsedTime.IsZero() {
+							lastUsedTime = key.LastUsedTime.Format(dateFormat)
+						}
 
-				row := []string{
-					user.UserName,
-					*key.Id,
-					createDate,
-					string(key.KeyStatus),
-					lastUsedTime,
-					key.LastUsedService,
+						row := []string{
+							user.UserName,
+							*key.Id,
+							createDate,
+							string(key.KeyStatus),
+							lastUsedTime,
+							key.LastUsedService,
+						}
+						data = append(data, row)
+					}
 				}
-				data = append(data, row)
+			}
+		// case types.User: // or your wrapper for `types.User`
+		// 	headers = []string{"This", "Is", "Test"}
+		// 	return nil, nil, fmt.Errorf("value slice is empty")
+
+		default:
+			headers = []string{"UserName", "CreateDate", "LastUsedTime"}
+			// for _, item := range value {
+			// 	// Type assert each item to types.users
+			// 	if user, ok := item.(types.User); ok {
+			// 		createDate := user.CreateDate.Format(dateFormat)
+			// 		lastUsedTime := "n/a"
+
+			// 		if !user.PasswordLastUsed.IsZero() {
+			// 			lastUsedTime = user.PasswordLastUsed.Format(dateFormat)
+			// 		}
+
+			// 		row := []string{
+			// 			*user.UserName,
+			// 			createDate,
+			// 			lastUsedTime,
+			// 		}
+			// 		fmt.Println("data")
+
+			// 		data = append(data, row)
+			// 	}
+
+			// }
+			for _, sublist := range value {
+				// If sublist is []types.User, iterate over it
+				if users, ok := sublist.([]types.User); ok {
+					for _, user := range users {
+						createDate := user.CreateDate.Format(dateFormat)
+						lastUsedTime := "n/a"
+
+						// if !user.PasswordLastUsed.IsZero() {
+						// 	lastUsedTime = user.PasswordLastUsed.Format(dateFormat)
+						// }
+
+						row := []string{
+							*user.UserName,
+							createDate,
+							lastUsedTime,
+						}
+
+						data = append(data, row)
+					}
+				} else {
+					log.Warnf("Unhandled type in value: %T", sublist)
+				}
 			}
 		}
+	} else {
+		return nil, nil, fmt.Errorf("value slice is empty")
 	}
 
 	return headers, data, nil

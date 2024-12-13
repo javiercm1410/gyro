@@ -78,3 +78,20 @@ func GetUserAccessKey(input GetUserAccessKeyInputs) ([]UserData, error) {
 
 	return userKeyData, nil
 }
+
+// func GetUserConsoleAccess(input GetUserAccessKeyInputs) ([]UserData, error) {
+// 	var usersData []types.User
+// 	var err error
+
+// 	if input.UserName != "" {
+// 		usersData = []types.User{{UserName: aws.String(input.UserName)}}
+// 	} else {
+// 		usersData, err = input.Client.ListUsers(input.MaxUsers)
+// 		if err != nil {
+// 			log.Errorf("Couldn't list users: %v", err)
+// 			return nil, err
+// 		}
+// 	}
+
+// 	return userKeyData, nil
+// }
