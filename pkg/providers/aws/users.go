@@ -2,45 +2,20 @@ package iam
 
 import (
 	"context"
-	"errors"
+	"sort"
+	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/charmbracelet/log"
 )
 
-type UserWrapper struct {
-	IamClient *iam.Client
-}
-
-type UserData interface {
-}
-
-type AccessKeyData struct {
-	Id              *string
-	CreateDate      time.Time
-	KeyStatus       types.StatusType
-	LastUsedTime    time.Time
-	LastUsedService string
-}
-
-type UserAccessKeyData struct {
-	UserName string
-	Keys     []AccessKeyData
-}
-
-// DeclareConfig initializes the IAM client using the default AWS configuration.
-func DeclareConfig() *iam.Client {
-	sdkConfig, err := config.LoadDefaultConfig(context.TODO())
-	if err != nil {
-		log.Warn("Couldn't load default configuration. Ensure AWS account setup.")
-		log.Error(err)
-		return nil
-	}
-	return iam.NewFromConfig(sdkConfig)
+type UserLoginData struct {
+	UserName     string
+	LastUsedTime time.Time
+	LoginProfile *types.LoginProfile
 }
 
 // ListUsers fetches a list of IAM users up to the specified maximum.
@@ -72,74 +47,96 @@ func (wrapper UserWrapper) ListUsers(maxUsers int32) ([]types.User, error) {
 	return users, nil
 }
 
-// ListAccessKeys fetches access keys for a specific user.
-func (wrapper UserWrapper) ListAccessKeys(userName, timeZone string, expired bool, stale int) (UserAccessKeyData, error) {
-	var keys []AccessKeyData
-	loc, err := time.LoadLocation(timeZone)
+// left here
+// GetLoginProfile fetches login profile info for a specific user.
+func (wrapper UserWrapper) GetLoginProfile(user types.User, expired, debug bool, stale int) (UserLoginData, error) {
+	input := &iam.GetLoginProfileInput{
+		UserName: user.UserName,
+	}
+
+	userLoginProfile := UserLoginData{
+		UserName: *user.UserName,
+	}
+
+	if user.PasswordLastUsed != nil && !user.PasswordLastUsed.IsZero() {
+		userLoginProfile.LastUsedTime = *user.PasswordLastUsed
+	}
+
+	result, err := wrapper.IamClient.GetLoginProfile(context.TODO(), input)
 	if err != nil {
-		log.Errorf("Couldn't list Load Time Zone %s. Error: %v", timeZone, err)
-		return UserAccessKeyData{}, err
-	}
-
-	input := &iam.ListAccessKeysInput{
-		UserName: aws.String(userName),
-	}
-
-	result, err := wrapper.IamClient.ListAccessKeys(context.TODO(), input)
-	if err != nil {
-		log.Errorf("Couldn't list access keys for user %s. Error: %v", userName, err)
-		return UserAccessKeyData{}, err
-	}
-
-	for _, key := range result.AccessKeyMetadata {
-		keyData, addToList, err := wrapper.getAccessKeyDetails(key, loc, expired, stale)
-		if err != nil {
-			log.Errorf("Couldn't fetch access key details for user %s. Error: %v", userName, err)
-			continue
+		if debug {
+			log.Infof("Couldn't list login profile for user %s. Error: %v", *user.UserName, err)
 		}
-		if addToList {
-			keys = append(keys, keyData)
-		}
+		return UserLoginData{}, err
+
 	}
 
-	return UserAccessKeyData{
-		UserName: userName,
-		Keys:     keys,
-	}, nil
-}
-
-// getAccessKeyDetails fetches and processes details for a single access key.
-func (wrapper UserWrapper) getAccessKeyDetails(key types.AccessKeyMetadata, loc *time.Location, expired bool, stale int) (AccessKeyData, bool, error) {
-	accessKeyInput := &iam.GetAccessKeyLastUsedInput{
-		AccessKeyId: aws.String(*key.AccessKeyId),
-	}
-
-	lastUsed, err := wrapper.IamClient.GetAccessKeyLastUsed(context.TODO(), accessKeyInput)
-	if err != nil {
-		return AccessKeyData{}, false, errors.New("Couldn't get last used data for access key")
-	}
-
-	keyData := AccessKeyData{
-		Id:         key.AccessKeyId,
-		CreateDate: key.CreateDate.In(loc),
-		KeyStatus:  key.Status,
-	}
-
-	if lastUsed.AccessKeyLastUsed.LastUsedDate != nil {
-		keyData.LastUsedTime = lastUsed.AccessKeyLastUsed.LastUsedDate.In(loc)
-		keyData.LastUsedService = *lastUsed.AccessKeyLastUsed.ServiceName
-	} else {
-		keyData.LastUsedService = "n/a"
-	}
+	userLoginProfile.LoginProfile = result.LoginProfile
 
 	if expired {
-		if time.Since(keyData.CreateDate).Hours() > float64(stale*24) {
-			return keyData, true, nil
+		if time.Since(*result.LoginProfile.CreateDate).Hours() > float64(stale*24) {
+			return userLoginProfile, nil
 		} else {
-			return keyData, false, nil
-
+			return UserLoginData{}, nil
 		}
 	}
 
-	return keyData, true, nil
+	return userLoginProfile, nil
+}
+
+// check this out
+func GetLoginProfiles(input GetWrapperInputs) ([]UserData, error) {
+	var usersData []types.User
+	var err error
+
+	if input.UserName != "" {
+		usersData = []types.User{{UserName: aws.String(input.UserName)}}
+	} else {
+		usersData, err = input.Client.ListUsers(input.MaxUsers)
+		if err != nil {
+			log.Errorf("Couldn't list users: %v", err)
+			return nil, err
+		}
+	}
+
+	var (
+		userLoginProfiles []UserData
+		mu                sync.Mutex
+		wg                sync.WaitGroup
+		errors            []error
+	)
+
+	wg.Add(len(usersData))
+
+	for _, user := range usersData {
+		go func(user types.User) {
+			defer wg.Done()
+			userLogin, err := input.Client.GetLoginProfile(user, input.Expired, false, input.Age)
+			if err != nil {
+				mu.Lock()
+
+				errors = append(errors, err)
+				mu.Unlock()
+				return
+			}
+
+			mu.Lock()
+			userLoginProfiles = append(userLoginProfiles, userLogin)
+
+			mu.Unlock()
+		}(user)
+	}
+
+	wg.Wait()
+
+	sort.Slice(userLoginProfiles, func(i, j int) bool {
+		return userLoginProfiles[j].(UserLoginData).UserName > userLoginProfiles[i].(UserLoginData).UserName
+	})
+
+	if len(errors) > 0 {
+		// CHange error message
+		return userLoginProfiles, errors[0] // Returning the first error as an example
+	}
+
+	return userLoginProfiles, nil
 }

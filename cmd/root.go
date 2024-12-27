@@ -32,6 +32,13 @@ func init() {
 		"Number of users to be listed",
 	)
 
+	RootCmd.PersistentFlags().BoolP(
+		"debug",
+		"d",
+		false,
+		"Show detailed output",
+	)
+
 	// Add validation example:
 	RootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 		quantity, _ := cmd.Flags().GetInt32("quantity")

@@ -6,7 +6,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/service/iam/types"
 	iam "github.com/javiercm1410/gyro/pkg/providers/aws"
 
 	"github.com/charmbracelet/lipgloss"
@@ -98,56 +97,33 @@ func processTableData(value []iam.UserData) ([]string, [][]string, error) {
 					}
 				}
 			}
-		// case types.User: // or your wrapper for `types.User`
-		// 	headers = []string{"This", "Is", "Test"}
-		// 	return nil, nil, fmt.Errorf("value slice is empty")
-
-		default:
-			headers = []string{"UserName", "CreateDate", "LastUsedTime"}
-			// for _, item := range value {
-			// 	// Type assert each item to types.users
-			// 	if user, ok := item.(types.User); ok {
-			// 		createDate := user.CreateDate.Format(dateFormat)
-			// 		lastUsedTime := "n/a"
-
-			// 		if !user.PasswordLastUsed.IsZero() {
-			// 			lastUsedTime = user.PasswordLastUsed.Format(dateFormat)
-			// 		}
-
-			// 		row := []string{
-			// 			*user.UserName,
-			// 			createDate,
-			// 			lastUsedTime,
-			// 		}
-			// 		fmt.Println("data")
-
-			// 		data = append(data, row)
-			// 	}
-
-			// }
+		case iam.UserLoginData:
+			headers = []string{"UserName", "LastUsed", "CreateDate"}
 			for _, sublist := range value {
 				// If sublist is []types.User, iterate over it
-				if users, ok := sublist.([]types.User); ok {
-					for _, user := range users {
-						createDate := user.CreateDate.Format(dateFormat)
-						lastUsedTime := "n/a"
-
-						// if !user.PasswordLastUsed.IsZero() {
-						// 	lastUsedTime = user.PasswordLastUsed.Format(dateFormat)
-						// }
-
-						row := []string{
-							*user.UserName,
-							createDate,
-							lastUsedTime,
-						}
-
-						data = append(data, row)
+				if user, ok := sublist.(iam.UserLoginData); ok {
+					// for _, user := range users {
+					createDate := user.LastUsedTime.Format(dateFormat)
+					lastUsedTime := "n/a"
+					if user.LoginProfile.CreateDate != nil && !user.LoginProfile.CreateDate.IsZero() {
+						lastUsedTime = user.LoginProfile.CreateDate.Format(dateFormat)
 					}
+
+					row := []string{
+						user.UserName,
+						createDate,
+						lastUsedTime,
+					}
+
+					data = append(data, row)
+
 				} else {
 					log.Warnf("Unhandled type in value: %T", sublist)
 				}
 			}
+
+		default:
+			return nil, nil, fmt.Errorf("undefined data type")
 		}
 	} else {
 		return nil, nil, fmt.Errorf("value slice is empty")

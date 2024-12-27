@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"os"
-
 	"github.com/charmbracelet/log"
 	iam "github.com/javiercm1410/gyro/pkg/providers/aws"
 	"github.com/javiercm1410/gyro/pkg/utils"
@@ -21,7 +19,7 @@ var usersCmd = &cobra.Command{
 			IamClient: iam.DeclareConfig(),
 		}
 
-		inputs := iam.GetUserAccessKeyInputs{
+		inputs := iam.GetWrapperInputs{
 			MaxUsers: options.Quantity,
 			TimeZone: options.TimeZone,
 			Age:      options.Age,
@@ -30,13 +28,12 @@ var usersCmd = &cobra.Command{
 			Client:   wrapper,
 		}
 
-		userPasswordData, err := wrapper.ListUsers(inputs.MaxUsers)
+		userPasswordData, err := iam.GetLoginProfiles(inputs)
 		if err != nil {
 			log.Error("Failed to get users", "error", err)
-			os.Exit(1)
 		}
 
-		utils.DisplayData(options.Format, options.Path, options.Age, []iam.UserData{userPasswordData})
+		utils.DisplayData(options.Format, options.Path, options.Age, userPasswordData)
 	},
 }
 

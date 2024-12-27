@@ -21,7 +21,7 @@ var keysCmd = &cobra.Command{
 			IamClient: iam.DeclareConfig(),
 		}
 
-		inputs := iam.GetUserAccessKeyInputs{
+		inputs := iam.GetWrapperInputs{
 			MaxUsers: options.Quantity,
 			TimeZone: options.TimeZone,
 			Age:      options.Age,
