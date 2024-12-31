@@ -5,22 +5,23 @@
 ## Contents
 
 - [📘 Description](#-description)
-  - [Features](#features)
+	- [Features](#features)
 - [🚢 Installation](#-installation)
 - [🔧 Usage](#-usage)
-  - [Commands](#commands)
-  - [Examples](#examples)
+	- [Commands](#commands)
+	- [Examples](#examples)
 - [🤝 Contributing](#-contributing)
+- [Roadmap](#roadmap)
+- [Tasks](#tasks)
 - [📄 License](#-license)
 
 ## 📘 Description
 
-Gyro CLI is a command-line tool designed to generate .env files using various providers, including Werf and 1Password.
+Gyro CLI is a command-line tool designed to list and rotate AWS access keys and users.
 
 ### Features
 
-- **Create .env with Werf:** Generate gyroronment files based on configurations managed by Werf.
-- **Create .env with 1Password:** Securely generate gyroronment files using secrets stored in 1Password.
+- **List:** List access keys and users.
 
 ## 🚢 Installation
 
@@ -34,13 +35,10 @@ sudo mv gyro /usr/local/bin
 
 ## 🔧 Usage
 
-Once installed, you can use the gyro command to generate .env files based on Werf or 1Password.
-
 ### Commands
 
-werf: Generate a .env file using Werf configurations.
-1pass: Generate a .env file using 1Password secrets.
-help: Display help information about any command.
+users: List AWS expired login Profiles
+keys: List AWS expire keys
 
 ### Examples
 
@@ -61,39 +59,20 @@ Contributions are welcome! Please follow these steps to contribute:
 5. Push to the branch (git push origin feature-branch).
 6. Open a Pull Request.
 
+## Roadmap
+
+- Rotation
+- Add config file
+- Write tests
+- Notify with slack
+- Mobile App
+
+## Tasks
+
+- Remove users without key from the output
+- Check all commands
+- Init rotation efforts
+
 ## 📄 License
 
 This project is licensed under the MIT License. See the LICENSE file for details.
-
-
-ROtate Access KEY
-Rotate PAssowrd
-Password manager as provider
-Use config file
-
-
-Multiple Output types
-Check Flags
-Check write to file
-
-
-they should be two command one for key
-the other for pass
-
-key command
-user command
-
-rotate will have flags
-
-
-Old in red, close to old in yellow
-
-
-Exit on failure
-
-
-safe key on aws configure
-
-use config file
-
-add notify feature
