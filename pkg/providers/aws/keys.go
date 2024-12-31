@@ -106,7 +106,6 @@ func GetUserAccessKey(input GetWrapperInputs) ([]UserData, error) {
 	} else {
 		usersData, err = input.Client.ListUsers(input.MaxUsers)
 		if err != nil {
-			log.Errorf("Couldn't list users: %v", err)
 			return nil, err
 		}
 	}

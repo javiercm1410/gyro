@@ -29,7 +29,6 @@ func (wrapper UserWrapper) ListUsers(maxUsers int32) ([]types.User, error) {
 	for {
 		result, err := wrapper.IamClient.ListUsers(context.TODO(), input)
 		if err != nil {
-			log.Errorf("Couldn't list users. Error: %v", err)
 			return nil, err
 		}
 
@@ -47,7 +46,6 @@ func (wrapper UserWrapper) ListUsers(maxUsers int32) ([]types.User, error) {
 	return users, nil
 }
 
-// left here
 // GetLoginProfile fetches login profile info for a specific user.
 func (wrapper UserWrapper) GetLoginProfile(user types.User, expired, debug bool, stale int) (UserLoginData, error) {
 	input := &iam.GetLoginProfileInput{
@@ -84,17 +82,28 @@ func (wrapper UserWrapper) GetLoginProfile(user types.User, expired, debug bool,
 	return userLoginProfile, nil
 }
 
-// check this out
 func GetLoginProfiles(input GetWrapperInputs) ([]UserData, error) {
 	var usersData []types.User
 	var err error
 
 	if input.UserName != "" {
-		usersData = []types.User{{UserName: aws.String(input.UserName)}}
+		inputGetUser := &iam.GetUserInput{
+			UserName: &input.UserName,
+		}
+		selectedUser, _ := input.Client.IamClient.GetUser(context.TODO(), inputGetUser)
+		if !selectedUser.User.PasswordLastUsed.IsZero() {
+			usersData = []types.User{{
+				UserName:         aws.String(input.UserName),
+				PasswordLastUsed: selectedUser.User.PasswordLastUsed,
+			}}
+		} else {
+			log.Errorf("User haven't accessed AWS console yet")
+			return nil, err
+		}
+
 	} else {
 		usersData, err = input.Client.ListUsers(input.MaxUsers)
 		if err != nil {
-			log.Errorf("Couldn't list users: %v", err)
 			return nil, err
 		}
 	}
@@ -103,7 +112,7 @@ func GetLoginProfiles(input GetWrapperInputs) ([]UserData, error) {
 		userLoginProfiles []UserData
 		mu                sync.Mutex
 		wg                sync.WaitGroup
-		errors            []error
+		// errors            []error
 	)
 
 	wg.Add(len(usersData))
@@ -113,10 +122,11 @@ func GetLoginProfiles(input GetWrapperInputs) ([]UserData, error) {
 			defer wg.Done()
 			userLogin, err := input.Client.GetLoginProfile(user, input.Expired, false, input.Age)
 			if err != nil {
-				mu.Lock()
+				// mu.Lock()
 
-				errors = append(errors, err)
-				mu.Unlock()
+				// We do this on purpose to avoid logs for profiles without login: 404 error
+				// errors = append(errors, err)
+				// mu.Unlock()
 				return
 			}
 
@@ -133,10 +143,10 @@ func GetLoginProfiles(input GetWrapperInputs) ([]UserData, error) {
 		return userLoginProfiles[j].(UserLoginData).UserName > userLoginProfiles[i].(UserLoginData).UserName
 	})
 
-	if len(errors) > 0 {
-		// CHange error message
-		return userLoginProfiles, errors[0] // Returning the first error as an example
-	}
+	// if len(errors) > 0 {
+	// 	// CHange error message
+	// 	return userLoginProfiles, errors[0] // Returning the first error as an example
+	// }
 
 	return userLoginProfiles, nil
 }
