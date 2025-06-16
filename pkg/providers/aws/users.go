@@ -90,7 +90,12 @@ func GetLoginProfiles(input GetWrapperInputs) ([]UserData, error) {
 		inputGetUser := &iam.GetUserInput{
 			UserName: &input.UserName,
 		}
-		selectedUser, _ := input.Client.IamClient.GetUser(context.TODO(), inputGetUser)
+
+		selectedUser, err := input.Client.IamClient.GetUser(context.TODO(), inputGetUser)
+		if err != nil {
+			return nil, err
+		}
+
 		if !selectedUser.User.PasswordLastUsed.IsZero() {
 			usersData = []types.User{{
 				UserName:         aws.String(input.UserName),

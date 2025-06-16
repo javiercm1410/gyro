@@ -29,6 +29,8 @@ type UserAccessKeyData struct {
 // ListAccessKeys fetches access keys for a specific user.
 func (wrapper UserWrapper) ListAccessKeys(userName, timeZone string, expired bool, stale int) (UserAccessKeyData, error) {
 	var keys []AccessKeyData
+
+	// this should be on presentation only
 	loc, err := time.LoadLocation(timeZone)
 	if err != nil {
 		log.Errorf("Couldn't list Load Time Zone %s. Error: %v", timeZone, err)
@@ -42,6 +44,10 @@ func (wrapper UserWrapper) ListAccessKeys(userName, timeZone string, expired boo
 	result, err := wrapper.IamClient.ListAccessKeys(context.TODO(), input)
 	if err != nil {
 		log.Errorf("Couldn't list access keys for user %s. Error: %v", userName, err)
+		return UserAccessKeyData{}, err
+	}
+
+	if len(result.AccessKeyMetadata) == 0 {
 		return UserAccessKeyData{}, err
 	}
 
@@ -132,12 +138,12 @@ func GetUserAccessKey(input GetWrapperInputs) ([]UserData, error) {
 			}
 
 			mu.Lock()
-			if input.Expired {
-				if keyData.Keys != nil {
+			if keyData.Keys != nil {
+				if input.Expired {
+					userKeyData = append(userKeyData, keyData)
+				} else {
 					userKeyData = append(userKeyData, keyData)
 				}
-			} else {
-				userKeyData = append(userKeyData, keyData)
 			}
 			mu.Unlock()
 		}(user)

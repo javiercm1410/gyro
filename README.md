@@ -5,11 +5,11 @@
 ## Contents
 
 - [📘 Description](#-description)
-	- [Features](#features)
+  - [Features](#features)
 - [🚢 Installation](#-installation)
 - [🔧 Usage](#-usage)
-	- [Commands](#commands)
-	- [Examples](#examples)
+  - [Commands](#commands)
+  - [Examples](#examples)
 - [🤝 Contributing](#-contributing)
 - [Roadmap](#roadmap)
 - [Tasks](#tasks)
@@ -76,3 +76,19 @@ Contributions are welcome! Please follow these steps to contribute:
 ## 📄 License
 
 This project is licensed under the MIT License. See the LICENSE file for details.
+
+
+Manage this error if no login profile:
+./gyro users -f json -u rotate
+
+
+
+Manage error if user doesn't exist:
+./gyro users -f json -u rotate
+
+Check command and flags
+
+Rotate
+
+when user have no key:
+./gyro keys -f json -u rotate
