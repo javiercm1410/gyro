@@ -17,6 +17,8 @@ before:
 
 builds:
   - binary: gyro
+    ldflags:
+    - -s -w -X github.com/gbh-tech/envi/cmd.Version={{.Version}}
     env:
       - CGO_ENABLED=0
     goos:

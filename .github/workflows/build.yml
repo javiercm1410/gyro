@@ -20,5 +20,5 @@ jobs:
           go-version-file: go.mod
           cache-dependency-path: go.sum
 
-      - name: 🛠️ Build Atlas tool
-        run: go build -o atlas
+      - name: 🛠️ Build gyro tool
+        run: go build -o gyro
