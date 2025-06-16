@@ -8,10 +8,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var Version string = "dev"
+
 var RootCmd = &cobra.Command{
 	Use:     "gyro",
 	Short:   "A CLI tool designed to rotate AWS Access Key and user credentials",
-	Version: getVersion(),
+	Version: Version,
 }
 
 type ListCommandOptions struct {
