@@ -26,6 +26,13 @@ type ListCommandOptions struct {
 	Expired  bool
 }
 
+type RotateCommandOptions struct {
+	ListCommandOptions
+	ExpireOnly bool
+	DryRun     bool
+	Notify     bool
+}
+
 func init() {
 	RootCmd.PersistentFlags().Int32P(
 		"quantity",
@@ -58,11 +65,6 @@ func Execute() {
 	}
 }
 
-func getVersion() string {
-	// Placeholder for dynamic version retrieval logic
-	return "1.0.0"
-}
-
 func configureListFlags(cmd *cobra.Command) ListCommandOptions {
 	quantity, _ := cmd.Flags().GetInt32("quantity")
 	timeZone, _ := cmd.Flags().GetString("timezone")
@@ -80,6 +82,20 @@ func configureListFlags(cmd *cobra.Command) ListCommandOptions {
 		Path:     path,
 		Age:      age,
 		Expired:  expired,
+	}
+}
+
+func configureRotateFlags(cmd *cobra.Command) RotateCommandOptions {
+	listOptions := configureListFlags(cmd)
+	expireOnly, _ := cmd.Flags().GetBool("expire-only")
+	dryRun, _ := cmd.Flags().GetBool("dry-run")
+	notify, _ := cmd.Flags().GetBool("notify")
+
+	return RotateCommandOptions{
+		ListCommandOptions: listOptions,
+		ExpireOnly:         expireOnly,
+		DryRun:             dryRun,
+		Notify:             notify,
 	}
 }
 

@@ -24,6 +24,13 @@ type GetWrapperInputs struct {
 	Expired  bool
 }
 
+type RotateWrapperInputs struct {
+	GetWrapperInputs
+	DryRun     bool
+	Notify     bool
+	ExpireOnly bool
+}
+
 // DeclareConfig initializes the IAM client using the default AWS configuration.
 func DeclareConfig() *iam.Client {
 	sdkConfig, err := config.LoadDefaultConfig(context.TODO())
