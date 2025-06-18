@@ -103,7 +103,7 @@ func (wrapper UserWrapper) getAccessKeyDetails(key types.AccessKeyMetadata, loc 
 	return keyData, true, nil
 }
 
-func GetUserAccessKey(input GetWrapperInputs) ([]UserData, error) {
+func GetUserAccessKey(input GetWrapperInputs) []UserData {
 	var usersData []types.User
 	var err error
 
@@ -112,7 +112,7 @@ func GetUserAccessKey(input GetWrapperInputs) ([]UserData, error) {
 	} else {
 		usersData, err = input.Client.ListUsers(input.MaxUsers)
 		if err != nil {
-			return nil, err
+			log.Fatalf("Failed to get users: %v", err)
 		}
 	}
 
@@ -151,7 +151,9 @@ func GetUserAccessKey(input GetWrapperInputs) ([]UserData, error) {
 
 	wg.Wait()
 	if len(errors) > 0 {
-		return nil, errors[0] // Returning the first error as an example
+		for _, err := range errors {
+			log.Errorf("Failed to get user: %v", err)
+		}
 	}
 
 	//This work if commented, we can leave like that but let's see why
@@ -161,5 +163,5 @@ func GetUserAccessKey(input GetWrapperInputs) ([]UserData, error) {
 	})
 	// }
 
-	return userKeyData, nil
+	return userKeyData
 }

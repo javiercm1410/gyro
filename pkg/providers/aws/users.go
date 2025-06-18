@@ -82,7 +82,7 @@ func (wrapper UserWrapper) GetLoginProfile(user types.User, expired, debug bool,
 	return userLoginProfile, nil
 }
 
-func GetLoginProfiles(input GetWrapperInputs) ([]UserData, error) {
+func GetLoginProfiles(input GetWrapperInputs) []UserData {
 	var usersData []types.User
 	var err error
 
@@ -93,7 +93,7 @@ func GetLoginProfiles(input GetWrapperInputs) ([]UserData, error) {
 
 		selectedUser, err := input.Client.IamClient.GetUser(context.TODO(), inputGetUser)
 		if err != nil {
-			return nil, err
+			log.Fatalf("Failed to get users: %v", err)
 		}
 
 		if !selectedUser.User.PasswordLastUsed.IsZero() {
@@ -102,14 +102,13 @@ func GetLoginProfiles(input GetWrapperInputs) ([]UserData, error) {
 				PasswordLastUsed: selectedUser.User.PasswordLastUsed,
 			}}
 		} else {
-			log.Errorf("User haven't accessed AWS console yet")
-			return nil, err
+			log.Error("User haven't accessed AWS console yet")
 		}
 
 	} else {
 		usersData, err = input.Client.ListUsers(input.MaxUsers)
 		if err != nil {
-			return nil, err
+			log.Fatalf("Failed to get users: %v", err)
 		}
 	}
 
@@ -153,5 +152,5 @@ func GetLoginProfiles(input GetWrapperInputs) ([]UserData, error) {
 	// 	return userLoginProfiles, errors[0] // Returning the first error as an example
 	// }
 
-	return userLoginProfiles, nil
+	return userLoginProfiles
 }
