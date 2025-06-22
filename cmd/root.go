@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/charmbracelet/log"
+	iam "github.com/javiercm1410/gyro/pkg/providers/aws"
 	"github.com/spf13/cobra"
 )
 
@@ -16,7 +17,7 @@ var RootCmd = &cobra.Command{
 	Version: Version,
 }
 
-type ListCommandOptions struct {
+type BaseCommandOptions struct {
 	Quantity int32
 	Path     string
 	User     string
@@ -27,10 +28,11 @@ type ListCommandOptions struct {
 }
 
 type RotateCommandOptions struct {
-	ListCommandOptions
+	BaseCommandOptions
 	ExpireOnly bool
 	DryRun     bool
 	Notify     bool
+	// AutoApprove bool
 }
 
 func init() {
@@ -65,7 +67,7 @@ func Execute() {
 	}
 }
 
-func configureListFlags(cmd *cobra.Command) ListCommandOptions {
+func configureListFlags(cmd *cobra.Command) BaseCommandOptions {
 	quantity, _ := cmd.Flags().GetInt32("quantity")
 	timeZone, _ := cmd.Flags().GetString("timezone")
 	format, _ := cmd.Flags().GetString("format")
@@ -74,7 +76,7 @@ func configureListFlags(cmd *cobra.Command) ListCommandOptions {
 	age, _ := cmd.Flags().GetInt("age")
 	expired, _ := cmd.Flags().GetBool("expired-only")
 
-	return ListCommandOptions{
+	return BaseCommandOptions{
 		Quantity: quantity,
 		User:     userName,
 		TimeZone: timeZone,
@@ -85,21 +87,39 @@ func configureListFlags(cmd *cobra.Command) ListCommandOptions {
 	}
 }
 
-func configureRotateFlags(cmd *cobra.Command) RotateCommandOptions {
+func configureListCommand(cmd *cobra.Command) (iam.GetWrapperInputs, BaseCommandOptions) {
+	options := configureListFlags(cmd)
+
+	wrapper := iam.UserWrapper{
+		IamClient: iam.DeclareConfig(),
+	}
+
+	inputs := iam.GetWrapperInputs{
+		MaxUsers: options.Quantity,
+		TimeZone: options.TimeZone,
+		Age:      options.Age,
+		Expired:  options.Expired,
+		UserName: options.User,
+		Client:   wrapper,
+	}
+	return inputs, options
+}
+
+func configureRotateCommand(cmd *cobra.Command) (RotateCommandOptions, BaseCommandOptions) {
 	listOptions := configureListFlags(cmd)
 	expireOnly, _ := cmd.Flags().GetBool("expire-only")
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 	notify, _ := cmd.Flags().GetBool("notify")
 
 	return RotateCommandOptions{
-		ListCommandOptions: listOptions,
+		BaseCommandOptions: listOptions,
 		ExpireOnly:         expireOnly,
 		DryRun:             dryRun,
 		Notify:             notify,
-	}
+	}, listOptions
 }
 
-func initializeListCommandFlags(cmd *cobra.Command) {
+func initializeBaseCommandFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringP("timezone", "t", "America/Santo_Domingo", "Timezone for displaying dates")
 	cmd.PersistentFlags().StringP("format", "f", "table", "Output format (json, table, file)")
 	cmd.PersistentFlags().StringP("output-file", "o", "./output.json", "Save results to file")

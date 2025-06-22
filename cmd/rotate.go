@@ -3,6 +3,7 @@ package cmd
 import (
 	"github.com/charmbracelet/log"
 	iam "github.com/javiercm1410/gyro/pkg/providers/aws"
+	"github.com/javiercm1410/gyro/pkg/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -17,8 +18,8 @@ var rotateCmd = &cobra.Command{
 	},
 }
 
-func initRotateCommand(cmd *cobra.Command) iam.RotateWrapperInputs {
-	options := configureRotateFlags(cmd)
+func initRotateCommand(cmd *cobra.Command) (iam.RotateWrapperInputs, BaseCommandOptions) {
+	options, baseOptions := configureRotateCommand(cmd)
 
 	wrapper := iam.UserWrapper{
 		IamClient: iam.DeclareConfig(),
@@ -29,23 +30,25 @@ func initRotateCommand(cmd *cobra.Command) iam.RotateWrapperInputs {
 			MaxUsers: options.Quantity,
 			TimeZone: options.TimeZone,
 			Age:      options.Age,
-			Expired:  options.Expired,
+			Expired:  true,
 			UserName: options.User,
 			Client:   wrapper,
 		},
 		DryRun:     options.DryRun,
 		Notify:     options.Notify,
 		ExpireOnly: options.ExpireOnly,
-	}
+	}, baseOptions
 }
 
 var rotateUserCmd = &cobra.Command{
 	Use:   "user",
 	Short: "Rotate credentials for a specific IAM user",
 	Run: func(cmd *cobra.Command, args []string) {
-		inputs := initRotateCommand(cmd)
+		inputs, baseOptions := initRotateCommand(cmd)
 
-		iam.GetLoginProfiles(inputs.GetWrapperInputs)
+		userPasswordData := iam.GetLoginProfiles(inputs.GetWrapperInputs)
+
+		utils.DisplayData(baseOptions.Format, baseOptions.Path, baseOptions.Age, userPasswordData)
 
 	},
 }
@@ -54,9 +57,9 @@ var rotateKeyCmd = &cobra.Command{
 	Use:   "key",
 	Short: "Rotate credentials for a specific IAM key",
 	Run: func(cmd *cobra.Command, args []string) {
-		inputs := initRotateCommand(cmd)
+		// inputs, _ := initRotateCommand(cmd)
 
-		iam.GetUserAccessKey(inputs.GetWrapperInputs)
+		// iam.GetUserAccessKey(inputs)
 
 	},
 }
@@ -66,5 +69,5 @@ func init() {
 	rotateCmd.AddCommand(rotateUserCmd)
 	rotateCmd.AddCommand(rotateKeyCmd)
 
-	initializeListCommandFlags(rotateCmd)
+	initializeBaseCommandFlags(rotateCmd)
 }

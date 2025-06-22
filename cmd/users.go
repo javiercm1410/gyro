@@ -12,29 +12,16 @@ var usersCmd = &cobra.Command{
 	Aliases: []string{"users", "u"},
 	Example: "gyro users",
 	Run: func(cmd *cobra.Command, args []string) {
-		options := configureListFlags(cmd)
-
-		wrapper := iam.UserWrapper{
-			IamClient: iam.DeclareConfig(),
-		}
-
-		inputs := iam.GetWrapperInputs{
-			MaxUsers: options.Quantity,
-			TimeZone: options.TimeZone,
-			Age:      options.Age,
-			Expired:  options.Expired,
-			UserName: options.User,
-			Client:   wrapper,
-		}
+		inputs, options := configureListCommand(cmd)
 
 		userPasswordData := iam.GetLoginProfiles(inputs)
 
-		utils.DisplayData(options.Format, options.Path, options.Age, userPasswordData)
+		utils.DisplayData(options.Format, options.Path, inputs.Age, userPasswordData)
 	},
 }
 
 func init() {
 	RootCmd.AddCommand(usersCmd)
 
-	initializeListCommandFlags(usersCmd)
+	initializeBaseCommandFlags(usersCmd)
 }

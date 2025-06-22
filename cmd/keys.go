@@ -12,20 +12,7 @@ var keysCmd = &cobra.Command{
 	Aliases: []string{"keys", "k"},
 	Example: "gyro keys",
 	Run: func(cmd *cobra.Command, args []string) {
-		options := configureListFlags(cmd)
-
-		wrapper := iam.UserWrapper{
-			IamClient: iam.DeclareConfig(),
-		}
-
-		inputs := iam.GetWrapperInputs{
-			MaxUsers: options.Quantity,
-			TimeZone: options.TimeZone,
-			Age:      options.Age,
-			Expired:  options.Expired,
-			UserName: options.User,
-			Client:   wrapper,
-		}
+		inputs, options := configureListCommand(cmd)
 
 		userKeyData := iam.GetUserAccessKey(inputs)
 
@@ -36,5 +23,5 @@ var keysCmd = &cobra.Command{
 func init() {
 	RootCmd.AddCommand(keysCmd)
 
-	initializeListCommandFlags(keysCmd)
+	initializeBaseCommandFlags(keysCmd)
 }
