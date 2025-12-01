@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/charmbracelet/log"
 	iam "github.com/javiercm1410/gyro/pkg/providers/aws"
 	"github.com/javiercm1410/gyro/pkg/utils"
@@ -30,14 +32,20 @@ func initRotateCommand(cmd *cobra.Command) (iam.RotateWrapperInputs, BaseCommand
 			MaxUsers: options.Quantity,
 			TimeZone: options.TimeZone,
 			Age:      options.Age,
-			Expired:  true,
+			Expired:  options.Expired,
 			UserName: options.User,
 			Client:   wrapper,
 		},
-		DryRun:     options.DryRun,
 		Notify:     options.Notify,
 		ExpireOnly: options.ExpireOnly,
 	}, baseOptions
+}
+
+func askForConfirmation() bool {
+	fmt.Println("Confirmation? (y/n)")
+	var response string
+	fmt.Scanln(&response)
+	return response == "y"
 }
 
 var rotateUserCmd = &cobra.Command{
@@ -50,6 +58,13 @@ var rotateUserCmd = &cobra.Command{
 
 		utils.DisplayData(baseOptions.Format, baseOptions.Path, baseOptions.Age, userPasswordData)
 
+		if !askForConfirmation() {
+			fmt.Println("Operation aborted.")
+			return
+		}
+		fmt.Println("Operation confirmed.")
+
+		iam.UserWrapper.RotateLoginProfiles(inputs.GetWrapperInputs.Client, userPasswordData)
 	},
 }
 
@@ -57,10 +72,19 @@ var rotateKeyCmd = &cobra.Command{
 	Use:   "key",
 	Short: "Rotate credentials for a specific IAM key",
 	Run: func(cmd *cobra.Command, args []string) {
-		// inputs, _ := initRotateCommand(cmd)
+		inputs, baseOptions := initRotateCommand(cmd)
 
-		// iam.GetUserAccessKey(inputs)
+		userKeyData := iam.GetUserAccessKey(inputs.GetWrapperInputs)
 
+		utils.DisplayData(baseOptions.Format, baseOptions.Path, baseOptions.Age, userKeyData)
+
+		if !askForConfirmation() {
+			fmt.Println("Operation aborted.")
+			return
+		}
+		fmt.Println("Operation confirmed.")
+
+		// iam.RotateAccessKeys(inputs.GetWrapperInputs.Client, userKeyData)
 	},
 }
 

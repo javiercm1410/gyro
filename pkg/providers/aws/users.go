@@ -2,6 +2,7 @@ package iam
 
 import (
 	"context"
+	"math/rand"
 	"sort"
 	"sync"
 	"time"
@@ -66,7 +67,6 @@ func (wrapper UserWrapper) GetLoginProfile(user types.User, expired, debug bool,
 			log.Infof("Couldn't list login profile for user %s. Error: %v", *user.UserName, err)
 		}
 		return UserLoginData{}, err
-
 	}
 
 	userLoginProfile.LoginProfile = result.LoginProfile
@@ -80,6 +80,34 @@ func (wrapper UserWrapper) GetLoginProfile(user types.User, expired, debug bool,
 	}
 
 	return userLoginProfile, nil
+}
+
+// RotateLoginProfiles rotates the login profile (password) for the provided users.
+func (wrapper UserWrapper) RotateLoginProfiles(users []UserData) {
+	for _, userData := range users {
+		user, ok := userData.(UserLoginData)
+		if !ok {
+			log.Warnf("Skipping invalid user data type: %T", userData)
+			continue
+		}
+
+		tempPassword := generateRandomString(12)
+
+		input := &iam.UpdateLoginProfileInput{
+			UserName:              aws.String(user.UserName),
+			Password:              aws.String(tempPassword),
+			PasswordResetRequired: aws.Bool(true),
+		}
+
+		_, err := wrapper.IamClient.UpdateLoginProfile(context.TODO(), input)
+		if err != nil {
+			log.Errorf("Failed to rotate password for user %s: %v", user.UserName, err)
+			continue
+		}
+
+		log.Infof("Successfully rotated password for user: %s", user.UserName)
+		log.Infof("New Password: %s", tempPassword)
+	}
 }
 
 func GetLoginProfiles(input GetWrapperInputs) []UserData {
@@ -96,14 +124,10 @@ func GetLoginProfiles(input GetWrapperInputs) []UserData {
 			log.Fatalf("Failed to get users: %v", err)
 		}
 
-		if !selectedUser.User.PasswordLastUsed.IsZero() {
-			usersData = []types.User{{
-				UserName:         aws.String(input.UserName),
-				PasswordLastUsed: selectedUser.User.PasswordLastUsed,
-			}}
-		} else {
-			log.Error("User haven't accessed AWS console yet")
-		}
+		usersData = []types.User{{
+			UserName:         aws.String(input.UserName),
+			PasswordLastUsed: selectedUser.User.PasswordLastUsed,
+		}}
 
 	} else {
 		usersData, err = input.Client.ListUsers(input.MaxUsers)
@@ -153,4 +177,28 @@ func GetLoginProfiles(input GetWrapperInputs) []UserData {
 	// }
 
 	return userLoginProfiles
+}
+
+const (
+	letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	numberBytes = "0123456789"
+	allBytes    = letterBytes + numberBytes
+)
+
+func generateRandomString(n int) string {
+	b := make([]byte, n)
+	// Ensure at least one number
+	b[0] = numberBytes[rand.Int63()%int64(len(numberBytes))]
+
+	// Fill the rest with mixed characters
+	for i := 1; i < n; i++ {
+		b[i] = allBytes[rand.Int63()%int64(len(allBytes))]
+	}
+
+	// Shuffle the bytes to randomize the position of the number
+	rand.Shuffle(len(b), func(i, j int) {
+		b[i], b[j] = b[j], b[i]
+	})
+
+	return string(b)
 }

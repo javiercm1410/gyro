@@ -108,13 +108,11 @@ func configureListCommand(cmd *cobra.Command) (iam.GetWrapperInputs, BaseCommand
 func configureRotateCommand(cmd *cobra.Command) (RotateCommandOptions, BaseCommandOptions) {
 	listOptions := configureListFlags(cmd)
 	expireOnly, _ := cmd.Flags().GetBool("expire-only")
-	dryRun, _ := cmd.Flags().GetBool("dry-run")
 	notify, _ := cmd.Flags().GetBool("notify")
 
 	return RotateCommandOptions{
 		BaseCommandOptions: listOptions,
 		ExpireOnly:         expireOnly,
-		DryRun:             dryRun,
 		Notify:             notify,
 	}, listOptions
 }
@@ -125,11 +123,11 @@ func initializeBaseCommandFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringP("output-file", "o", "./output.json", "Save results to file")
 	cmd.PersistentFlags().StringP("username", "u", "", "Filter by specific IAM username")
 	cmd.PersistentFlags().IntP("age", "a", 90, "Consider keys stale after N days")
-	cmd.PersistentFlags().BoolP("expired-only", "x", false, "Show only expired keys")
+	cmd.PersistentFlags().BoolP("expired-only", "x", true, "Show only expired keys/login profiles")
 
 	cmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 		age, _ := cmd.Flags().GetInt("age")
-		if age < 1 {
+		if age < 0 {
 			return fmt.Errorf("age must be greater than 0, got %d", age)
 		}
 

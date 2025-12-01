@@ -105,6 +105,10 @@ func processTableData(value []iam.UserData) ([]string, [][]string, error) {
 					// for _, user := range users {
 					createDate := user.LastUsedTime.Format(dateFormat)
 					lastUsedTime := "n/a"
+					// check thIS
+					if user.UserName == "" {
+						continue
+					}
 					if user.LoginProfile.CreateDate != nil && !user.LoginProfile.CreateDate.IsZero() {
 						lastUsedTime = user.LoginProfile.CreateDate.Format(dateFormat)
 					}

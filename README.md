@@ -62,6 +62,10 @@ Contributions are welcome! Please follow these steps to contribute:
 ## Roadmap
 
 - Rotation
+- Delete only feature
+- If 2user has two keys add confirmation
+- User should provide temp pass
+- Store/send results
 - Add config file
 - Write tests
 - Notify with slack
