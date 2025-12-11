@@ -26,9 +26,11 @@ type GetWrapperInputs struct {
 
 type RotateWrapperInputs struct {
 	GetWrapperInputs
-	DryRun     bool
-	Notify     bool
-	ExpireOnly bool
+	DryRun           bool
+	Notify           bool
+	ExpireOnly       bool
+	SkipConfirmation bool
+	SkipCurrentUser  bool
 }
 
 // DeclareConfig initializes the IAM client using the default AWS configuration.

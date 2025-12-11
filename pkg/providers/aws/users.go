@@ -19,6 +19,11 @@ type UserLoginData struct {
 	LoginProfile *types.LoginProfile
 }
 
+type LoginProfileRotationResult struct {
+	UserName string
+	Password string
+}
+
 // ListUsers fetches a list of IAM users up to the specified maximum.
 func (wrapper UserWrapper) ListUsers(maxUsers int32) ([]types.User, error) {
 	var users []types.User
@@ -83,7 +88,8 @@ func (wrapper UserWrapper) GetLoginProfile(user types.User, expired, debug bool,
 }
 
 // RotateLoginProfiles rotates the login profile (password) for the provided users.
-func (wrapper UserWrapper) RotateLoginProfiles(users []UserData) {
+func (wrapper UserWrapper) RotateLoginProfiles(users []UserData) []UserData {
+	var results []UserData
 	for _, userData := range users {
 		user, ok := userData.(UserLoginData)
 		if !ok {
@@ -107,7 +113,13 @@ func (wrapper UserWrapper) RotateLoginProfiles(users []UserData) {
 
 		log.Infof("Successfully rotated password for user: %s", user.UserName)
 		log.Infof("New Password: %s", tempPassword)
+
+		results = append(results, LoginProfileRotationResult{
+			UserName: user.UserName,
+			Password: tempPassword,
+		})
 	}
+	return results
 }
 
 func GetLoginProfiles(input GetWrapperInputs) []UserData {

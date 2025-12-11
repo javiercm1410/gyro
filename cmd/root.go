@@ -29,10 +29,11 @@ type BaseCommandOptions struct {
 
 type RotateCommandOptions struct {
 	BaseCommandOptions
-	ExpireOnly bool
-	DryRun     bool
-	Notify     bool
-	// AutoApprove bool
+	ExpireOnly       bool
+	DryRun           bool
+	Notify           bool
+	SkipConfirmation bool
+	SkipCurrentUser  bool
 }
 
 func init() {
@@ -109,11 +110,15 @@ func configureRotateCommand(cmd *cobra.Command) (RotateCommandOptions, BaseComma
 	listOptions := configureListFlags(cmd)
 	expireOnly, _ := cmd.Flags().GetBool("expire-only")
 	notify, _ := cmd.Flags().GetBool("notify")
+	skipConfirmation, _ := cmd.Flags().GetBool("skip-confirmation")
+	skipCurrentUser, _ := cmd.Flags().GetBool("skip-current-user")
 
 	return RotateCommandOptions{
 		BaseCommandOptions: listOptions,
 		ExpireOnly:         expireOnly,
 		Notify:             notify,
+		SkipConfirmation:   skipConfirmation,
+		SkipCurrentUser:    skipCurrentUser,
 	}, listOptions
 }
 
@@ -123,7 +128,9 @@ func initializeBaseCommandFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringP("output-file", "o", "./output.json", "Save results to file")
 	cmd.PersistentFlags().StringP("username", "u", "", "Filter by specific IAM username")
 	cmd.PersistentFlags().IntP("age", "a", 90, "Consider keys stale after N days")
-	cmd.PersistentFlags().BoolP("expired-only", "x", true, "Show only expired keys/login profiles")
+	cmd.PersistentFlags().BoolP("expired-only", "x", false, "Show only expired keys/login profiles")
+	cmd.PersistentFlags().BoolP("skip-confirmation", "s", false, "Skip confirmation prompts")
+	cmd.PersistentFlags().BoolP("skip-current-user", "c", false, "Skip current user")
 
 	cmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 		age, _ := cmd.Flags().GetInt("age")
@@ -132,9 +139,9 @@ func initializeBaseCommandFlags(cmd *cobra.Command) {
 		}
 
 		format, _ := cmd.Flags().GetString("format")
-		validFormats := map[string]bool{"json": true, "table": true, "text": true}
+		validFormats := map[string]bool{"json": true, "table": true, "file": true}
 		if !validFormats[format] {
-			return fmt.Errorf("invalid format '%s'. Valid options are: json, table, text", format)
+			return fmt.Errorf("invalid format '%s'. Valid options are: json, table, file", format)
 		}
 
 		timeZone, _ := cmd.Flags().GetString("timezone")

@@ -3,6 +3,7 @@ package iam
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sort"
 	"sync"
 	"time"
@@ -19,6 +20,14 @@ type AccessKeyData struct {
 	KeyStatus       types.StatusType
 	LastUsedTime    time.Time
 	LastUsedService string
+	MatchesCriteria bool
+	IsExpired       bool
+}
+
+type AccessKeyRotationResult struct {
+	UserName        string
+	AccessKeyId     string
+	SecretAccessKey string
 }
 
 type UserAccessKeyData struct {
@@ -29,6 +38,7 @@ type UserAccessKeyData struct {
 // ListAccessKeys fetches access keys for a specific user.
 func (wrapper UserWrapper) ListAccessKeys(userName, timeZone string, expired bool, stale int) (UserAccessKeyData, error) {
 	var keys []AccessKeyData
+	hasMatch := false
 
 	// this should be on presentation only
 	loc, err := time.LoadLocation(timeZone)
@@ -48,18 +58,23 @@ func (wrapper UserWrapper) ListAccessKeys(userName, timeZone string, expired boo
 	}
 
 	if len(result.AccessKeyMetadata) == 0 {
-		return UserAccessKeyData{}, err
+		return UserAccessKeyData{}, nil
 	}
 
 	for _, key := range result.AccessKeyMetadata {
-		keyData, addToList, err := wrapper.getAccessKeyDetails(key, loc, expired, stale)
+		keyData, err := wrapper.getAccessKeyDetails(key, loc, expired, stale)
 		if err != nil {
 			log.Errorf("Couldn't fetch access key details for user %s. Error: %v", userName, err)
 			continue
 		}
-		if addToList {
-			keys = append(keys, keyData)
+		keys = append(keys, keyData)
+		if keyData.MatchesCriteria {
+			hasMatch = true
 		}
+	}
+
+	if expired && !hasMatch {
+		return UserAccessKeyData{}, nil
 	}
 
 	return UserAccessKeyData{
@@ -69,14 +84,14 @@ func (wrapper UserWrapper) ListAccessKeys(userName, timeZone string, expired boo
 }
 
 // getAccessKeyDetails fetches and processes details for a single access key.
-func (wrapper UserWrapper) getAccessKeyDetails(key types.AccessKeyMetadata, loc *time.Location, expired bool, stale int) (AccessKeyData, bool, error) {
+func (wrapper UserWrapper) getAccessKeyDetails(key types.AccessKeyMetadata, loc *time.Location, expired bool, stale int) (AccessKeyData, error) {
 	accessKeyInput := &iam.GetAccessKeyLastUsedInput{
 		AccessKeyId: aws.String(*key.AccessKeyId),
 	}
 
 	lastUsed, err := wrapper.IamClient.GetAccessKeyLastUsed(context.TODO(), accessKeyInput)
 	if err != nil {
-		return AccessKeyData{}, false, errors.New("couldn't get last used data for access key")
+		return AccessKeyData{}, errors.New("couldn't get last used data for access key")
 	}
 
 	keyData := AccessKeyData{
@@ -92,15 +107,113 @@ func (wrapper UserWrapper) getAccessKeyDetails(key types.AccessKeyMetadata, loc 
 		keyData.LastUsedService = "n/a"
 	}
 
+	keyData.MatchesCriteria = true
+	if time.Since(keyData.CreateDate).Hours() > float64(stale*24) {
+		keyData.IsExpired = true
+	}
+
 	if expired {
-		if time.Since(keyData.CreateDate).Hours() > float64(stale*24) {
-			return keyData, true, nil
-		} else {
-			return keyData, false, nil
+		if !keyData.IsExpired {
+			keyData.MatchesCriteria = false
 		}
 	}
 
-	return keyData, true, nil
+	return keyData, nil
+}
+
+// RotateAccessKeys rotates the access keys for the provided users.
+func (wrapper UserWrapper) RotateAccessKeys(keys []UserData, skipConfirmation bool) []UserData {
+	var results []UserData
+	for _, keyData := range keys {
+		user, ok := keyData.(UserAccessKeyData)
+		if !ok {
+			log.Warnf("Skipping invalid user data type: %T", keyData)
+			continue
+		}
+
+		// Check for expired active keys and prompt for deactivation
+		for _, key := range user.Keys {
+			if key.IsExpired && key.KeyStatus == types.StatusTypeActive {
+				shouldDeactivate := skipConfirmation
+				if !skipConfirmation {
+					fmt.Printf("User %s has an expired active access key (%s). Do you want to deactivate it? (y/n): ", user.UserName, *key.Id)
+					var response string
+					fmt.Scanln(&response)
+					if response == "y" {
+						shouldDeactivate = true
+					}
+				}
+
+				if shouldDeactivate {
+					updateInput := &iam.UpdateAccessKeyInput{
+						UserName:    aws.String(user.UserName),
+						AccessKeyId: key.Id,
+						Status:      types.StatusTypeInactive,
+					}
+					_, err := wrapper.IamClient.UpdateAccessKey(context.TODO(), updateInput)
+					if err != nil {
+						log.Errorf("Failed to deactivate access key %s: %v", *key.Id, err)
+					} else {
+						log.Infof("Successfully deactivated access key %s", *key.Id)
+					}
+				}
+			}
+		}
+
+		if len(user.Keys) >= 2 {
+			// Find oldest key
+			oldestKey := user.Keys[0]
+			for _, k := range user.Keys {
+				if k.CreateDate.Before(oldestKey.CreateDate) {
+					oldestKey = k
+				}
+			}
+
+			if !skipConfirmation {
+				fmt.Printf("User %s has 2 access keys. Do you want to delete the oldest key (%s created on %s)? (y/n): ", user.UserName, *oldestKey.Id, oldestKey.CreateDate)
+				var response string
+				fmt.Scanln(&response)
+				if response != "y" {
+					log.Warnf("Skipping rotation for user %s as they have 2 keys", user.UserName)
+					continue
+				}
+			}
+
+			// Delete key
+			deleteInput := &iam.DeleteAccessKeyInput{
+				UserName:    aws.String(user.UserName),
+				AccessKeyId: oldestKey.Id,
+			}
+			_, err := wrapper.IamClient.DeleteAccessKey(context.TODO(), deleteInput)
+			if err != nil {
+				log.Errorf("Failed to delete access key %s for user %s: %v", *oldestKey.Id, user.UserName, err)
+				continue
+			}
+			log.Infof("Successfully deleted access key %s for user %s", *oldestKey.Id, user.UserName)
+		}
+
+		// Create new key
+		createInput := &iam.CreateAccessKeyInput{
+			UserName: aws.String(user.UserName),
+		}
+		createOutput, err := wrapper.IamClient.CreateAccessKey(context.TODO(), createInput)
+		if err != nil {
+			log.Errorf("Failed to create access key for user %s: %v", user.UserName, err)
+			continue
+		}
+
+		log.Infof("Successfully rotated access key for user: %s", user.UserName)
+		log.Infof("Access Key ID: %s", *createOutput.AccessKey.AccessKeyId)
+		log.Infof("Secret Access Key: %s", *createOutput.AccessKey.SecretAccessKey)
+
+		results = append(results, AccessKeyRotationResult{
+			UserName:        user.UserName,
+			AccessKeyId:     *createOutput.AccessKey.AccessKeyId,
+			SecretAccessKey: *createOutput.AccessKey.SecretAccessKey,
+		})
+	}
+
+	return results
 }
 
 func GetUserAccessKey(input GetWrapperInputs) []UserData {

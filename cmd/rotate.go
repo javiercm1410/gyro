@@ -16,6 +16,8 @@ var rotateCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
 			log.Fatal("No arguments provided. Valid options are: 'users' and 'keys'")
+		} else {
+			log.Fatalf("Invalid argument '%s'. Valid options are: 'users' and 'keys'", args[0])
 		}
 	},
 }
@@ -36,8 +38,10 @@ func initRotateCommand(cmd *cobra.Command) (iam.RotateWrapperInputs, BaseCommand
 			UserName: options.User,
 			Client:   wrapper,
 		},
-		Notify:     options.Notify,
-		ExpireOnly: options.ExpireOnly,
+		Notify:           options.Notify,
+		ExpireOnly:       options.ExpireOnly,
+		SkipConfirmation: options.SkipConfirmation,
+		SkipCurrentUser:  options.SkipCurrentUser,
 	}, baseOptions
 }
 
@@ -49,42 +53,58 @@ func askForConfirmation() bool {
 }
 
 var rotateUserCmd = &cobra.Command{
-	Use:   "user",
-	Short: "Rotate credentials for a specific IAM user",
+	Use:     "user",
+	Aliases: []string{"users"},
+	Short:   "Rotate credentials for a specific IAM user",
 	Run: func(cmd *cobra.Command, args []string) {
 		inputs, baseOptions := initRotateCommand(cmd)
 
 		userPasswordData := iam.GetLoginProfiles(inputs.GetWrapperInputs)
 
+		// if inputs.SkipCurrentUser {
+		// 	iam.RemoveCurrentUser(userPasswordData)
+		// }
+
 		utils.DisplayData(baseOptions.Format, baseOptions.Path, baseOptions.Age, userPasswordData)
 
-		if !askForConfirmation() {
-			fmt.Println("Operation aborted.")
-			return
-		}
-		fmt.Println("Operation confirmed.")
+		if len(userPasswordData) > 0 {
+			if !inputs.SkipConfirmation && !askForConfirmation() {
+				fmt.Println("Operation aborted.")
+				return
+			}
+			fmt.Println("Operation confirmed.")
 
-		iam.UserWrapper.RotateLoginProfiles(inputs.GetWrapperInputs.Client, userPasswordData)
+			userResults := iam.UserWrapper.RotateLoginProfiles(inputs.GetWrapperInputs.Client, userPasswordData)
+			utils.DisplayData(baseOptions.Format, baseOptions.Path, baseOptions.Age, userResults)
+		}
 	},
 }
 
 var rotateKeyCmd = &cobra.Command{
-	Use:   "key",
-	Short: "Rotate credentials for a specific IAM key",
+	Use:     "key",
+	Aliases: []string{"keys"},
+	Short:   "Rotate credentials for a specific IAM key",
 	Run: func(cmd *cobra.Command, args []string) {
 		inputs, baseOptions := initRotateCommand(cmd)
 
 		userKeyData := iam.GetUserAccessKey(inputs.GetWrapperInputs)
 
+		// if inputs.SkipCurrentUser {
+		// 	iam.RemoveCurrentUser(userKeyData)
+		// }
+
 		utils.DisplayData(baseOptions.Format, baseOptions.Path, baseOptions.Age, userKeyData)
 
-		if !askForConfirmation() {
-			fmt.Println("Operation aborted.")
-			return
-		}
-		fmt.Println("Operation confirmed.")
+		if len(userKeyData) > 0 {
+			if !inputs.SkipConfirmation && !askForConfirmation() {
+				fmt.Println("Operation aborted.")
+				return
+			}
+			fmt.Println("Operation confirmed.")
 
-		// iam.RotateAccessKeys(inputs.GetWrapperInputs.Client, userKeyData)
+			keyResults := iam.UserWrapper.RotateAccessKeys(inputs.GetWrapperInputs.Client, userKeyData, inputs.SkipConfirmation)
+			utils.DisplayData(baseOptions.Format, baseOptions.Path, baseOptions.Age, keyResults)
+		}
 	},
 }
 

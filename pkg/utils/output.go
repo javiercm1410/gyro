@@ -78,6 +78,9 @@ func processTableData(value []iam.UserData) ([]string, [][]string, error) {
 				// Type assert each item to UserAccessKeyData
 				if user, ok := item.(iam.UserAccessKeyData); ok {
 					for _, key := range user.Keys {
+						if !key.MatchesCriteria {
+							continue
+						}
 						createDate := key.CreateDate.Format(dateFormat)
 						lastUsedTime := "n/a"
 
@@ -95,6 +98,29 @@ func processTableData(value []iam.UserData) ([]string, [][]string, error) {
 						}
 						data = append(data, row)
 					}
+				}
+			}
+		case iam.AccessKeyRotationResult:
+			headers = []string{"UserName", "AccessKeyId", "SecretAccessKey"}
+			for _, item := range value {
+				if result, ok := item.(iam.AccessKeyRotationResult); ok {
+					row := []string{
+						result.UserName,
+						result.AccessKeyId,
+						result.SecretAccessKey,
+					}
+					data = append(data, row)
+				}
+			}
+		case iam.LoginProfileRotationResult:
+			headers = []string{"UserName", "Password"}
+			for _, item := range value {
+				if result, ok := item.(iam.LoginProfileRotationResult); ok {
+					row := []string{
+						result.UserName,
+						result.Password,
+					}
+					data = append(data, row)
 				}
 			}
 		case iam.UserLoginData:
